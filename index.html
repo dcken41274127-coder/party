@@ -445,7 +445,7 @@
             return;
         }
 
-        const matches = guestData.filter(g => g.name.includes(keyword));
+        const matches = guestData.filter(g => g.name.includes(keyword) || g.company.includes(keyword));
 
         if (matches.length > 0) {
             matches.forEach(person => {
@@ -477,6 +477,7 @@
 </body>
 
 </html>
+
 
 
 
