@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>尾牙桌次查詢系統</title>
+    <style>
+        :root {
+            --primary-color: #d32f2f; /* 喜慶紅 */
+            --bg-color: #fcf4f4;
+        }
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: var(--bg-color); display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
+        h2 { color: var(--primary-color); margin-top: 0; letter-spacing: 2px; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] {
+            flex: 1; padding: 12px; border: 2px solid #eee; border-radius: 10px; font-size: 16px; transition: 0.3s;
+        }
+        input:focus { border-color: var(--primary-color); outline: none; box-shadow: 0 0 5px rgba(211, 47, 47, 0.2); }
+        button {
+            padding: 12px 20px; background-color: var(--primary-color); color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; font-weight: bold;
+        }
+        button:active { transform: scale(0.95); }
+        
+        #result { margin-top: 15px; }
+        .guest-card { 
+            background: #fff; border: 1px solid #eee; border-left: 6px solid var(--primary-color);
+            padding: 20px; border-radius: 12px; text-align: left; margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+        .table-num { font-size: 2.8em; color: var(--primary-color); font-weight: 900; float: right; margin-top: -5px; }
+        .info-row { margin-bottom: 8px; }
+        .label { color: #888; font-size: 0.85em; display: block; }
+        .value { font-size: 1.1em; font-weight: bold; color: #333; }
+        .error-msg { color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🧧 尾牙桌次查詢</h2>
+    <p style="color: #666; font-size: 0.9em; margin-bottom: 20px;">請輸入您的完整姓名或姓氏查詢</p>
+    
+    <div class="search-box">
+        <input type="text" id="nameInput" placeholder="例如：江俊霆" onkeypress="if(event.key==='Enter') searchTable()">
+        <button onclick="searchTable()">查詢</button>
+    </div>
+    
+    <div id="result"></div>
+</div>
+
+<script>
+    // 欄位對應：name(E姓名), table(B桌次), company(D廠商名稱), title(F職稱), count(G參加人數)
+    const guestData = [
+        { name: "江俊霆", table: "1", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "凌濤", table: "1", company: "桃園市", title: "議員", count: 1 },
+        { name: "康秋桂", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "黃怡騰", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "賴金河", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "何采純", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "江美桃", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "陳嘉興", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "林純秀", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "許啟義", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "陳秀蓮", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "彭洪麗", table: "1", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "張榮味", table: "2", company: "雲林縣", title: "陪同", count: 2 },
+        { name: "魏良全", table: "2", company: "華盈電子股份有限公司", title: "董事長", count: 1 },
+        { name: "王良新", table: "2", company: "台灣省商業會", title: "秘書長", count: 1 },
+        { name: "陳鏡元", table: "2", company: "", title: "董事長", count: 1 },
+        { name: "郭進源", table: "2", company: "板橋農會", title: "理事長", count: 1 },
+        { name: "姚舜仁", table: "2", company: "五股農會", title: "總幹事", count: 2 },
+        { name: "陳瑞雄", table: "2", company: "雲林縣農會", title: "理事長", count: 1 },
+        { name: "王冠傑", table: "2", company: "", title: "", count: 1 },
+        { name: "立委辦公室", table: "3", company: "小甄+嘉郡", title: "", count: 10 },
+        { name: "曹洛薇", table: "4", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "楊智伃", table: "4", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "阿佑", table: "4", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "李美嬅", table: "4", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "宏樺", table: "4", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "謝若彤", table: "4", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "凱勛", table: "4", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "游士儀", table: "4", company: "銀光好居行動聯盟", title: "同仁", count: 1 },
+        { name: "李光禹", table: "4", company: "銀光好居行動聯盟", title: "同仁", count: 1 },
+        { name: "李瑞芬", table: "4", company: "銀光好居行動聯盟", title: "同仁", count: 1 },
+        { name: "張慶光", table: "5", company: "銀光好居行動聯盟及(樂齡網)", title: "董事長", count: 1 },
+        { name: "林偉峰", table: "5", company: "銀光好居行動聯盟 ", title: "顧問", count: 1 },
+        { name: "楊英櫻", table: "5", company: "銀光好居行動聯盟", title: "同仁", count: 1 },
+        { name: "陳宜民", table: "5", company: "銀光好居行動聯盟", title: "顧問", count: 1 },
+        { name: "江宏志", table: "5", company: "都更總會", title: "理事長", count: 1 },
+        { name: "黃淑華", table: "5", company: "中華都更總會", title: "秘書長", count: 1 },
+        { name: "李柏憲", table: "5", company: "合勤共生宅", title: "董事長", count: 1 },
+        { name: "劉家齊", table: "5", company: "新北市政府", title: "秘書", count: 1 },
+        { name: "袁鈺鈞", table: "5", company: "銀光好居行動聯盟", title: "同仁", count: 1 },
+        { name: "黃心怡", table: "5", company: "銀光協會", title: "總幹事", count: 1 },
+        { name: "莫懷祖", table: "6", company: "台北市消防局", title: "局長", count: 1 },
+        { name: "陳崇岳", table: "6", company: "新北市消防局", title: "局長", count: 1 },
+        { name: "游家懿", table: "6", company: "基隆市消防局", title: "局長", count: 1 },
+        { name: "謝景旭", table: "6", company: "消防退休協會", title: "理事長", count: 1 },
+        { name: "許志敏", table: "6", company: "台北市消防局", title: "副局長", count: 1 },
+        { name: "王靜婷", table: "6", company: "台北市消防局", title: "副局長", count: 1 },
+        { name: "劉永舟", table: "6", company: "台北市消防局", title: "副局長", count: 1 },
+        { name: "楊艷禾", table: "6", company: "台北市消防局", title: "主任秘書", count: 0 },
+        { name: "黃建華", table: "6", company: "台北市消防局", title: "專門委員", count: 1 },
+        { name: "林義承", table: "6", company: "台北市消防局", title: "大隊長", count: 2 },
+        { name: "葉俊興", table: "7", company: "台北市消防局", title: "大隊長", count: 1 },
+        { name: "蔡家隆", table: "7", company: "台北市消防局", title: "大隊長", count: 1 },
+        { name: "王耀震", table: "7", company: "台北市消防局", title: "大隊長", count: 1 },
+        { name: "黃鳴毅", table: "7", company: "台北市消防局", title: "主任", count: 1 },
+        { name: "蕭建成", table: "7", company: "台北市消防局", title: "主任", count: 1 },
+        { name: "宋上輝", table: "7", company: "", title: "", count: 1 },
+        { name: "黃忠曉", table: "7", company: "義消總隊", title: "總隊長", count: 1 },
+        { name: "黃智輝", table: "7", company: "義消總隊", title: "副總隊長", count: 1 },
+        { name: "劉俊彥", table: "7", company: "義消總隊", title: "副總幹事", count: 1 },
+        { name: "鄭清亮", table: "7", company: "義消總隊", title: "副總幹事", count: 1 },
+        { name: "林鴻鈞", table: "8", company: "雲林縣農會", title: "理事長", count: 1 },
+        { name: "許文華", table: "8", company: "", title: "里長", count: 1 },
+        { name: "黃虎台 ", table: "8", company: "", title: "台長", count: 1 },
+        { name: "黃重凱", table: "8", company: "", title: "", count: 0 },
+        { name: "謝龍隱", table: "8", company: "", title: "", count: 1 },
+        { name: "黃建祥", table: "8", company: "桓億建設", title: "", count: 1 },
+        { name: "何樹根", table: "8", company: "富國大地", title: "", count: 1 },
+        { name: "張盈智", table: "8", company: "築遠結構", title: "", count: 1 },
+        { name: "林克強", table: "8", company: "台科大", title: "教授", count: 1 },
+        { name: "江宗德", table: "8", company: "合矩建設", title: "董事長", count: 2 },
+        { name: "張席維", table: "9", company: "", title: "", count: 1 },
+        { name: "林啟滄同仁", table: "9", company: "中華民國全國漁會", title: "", count: 2 },
+        { name: "吳永寬", table: "9", company: "淡水區漁會", title: "總幹事", count: 2 },
+        { name: "葉彰師", table: "9", company: "淡水區漁會", title: "常務監事", count: 1 },
+        { name: "黃志明", table: "9", company: "瑞芳區漁會", title: "總幹事", count: 2 },
+        { name: "陳春生", table: "9", company: "蘇澳區漁會", title: "總幹事", count: 2 },
+        { name: "魏建松", table: "10", company: "聯邦-松江", title: "協理", count: 1 },
+        { name: "黃俊宏", table: "10", company: "聯邦-松江", title: "副理", count: 1 },
+        { name: "陳葦峻", table: "10", company: "上海-宜蘭", title: "經理", count: 1 },
+        { name: "林東澤", table: "10", company: "上海-宜蘭", title: "經理", count: 1 },
+        { name: "卓 孟賡", table: "10", company: "台中商銀-土城", title: "經理", count: 1 },
+        { name: "張國榮", table: "10", company: "台中商銀-土城", title: "協理", count: 1 },
+        { name: "廖少懷 ", table: "10", company: "台中商銀-土城", title: "副理", count: 1 },
+        { name: "薛志明", table: "10", company: "一銀-羅東", title: "資深副理", count: 1 },
+        { name: "羅郁喬", table: "10", company: "一銀-羅東", title: "專員", count: 1 },
+        { name: "吳素華", table: "10", company: "一銀-羅東", title: "專員", count: 1 },
+        { name: "洪韶華", table: "10", company: "一銀-羅東", title: "專員", count: 1 },
+        { name: "分局同仁", table: "11", company: "文二分局", title: "分局長", count: 10 },
+        { name: "鄧淞駿", table: "12", company: "台北市文山區", title: "區長", count: 1 },
+        { name: "蔡培林", table: "12", company: "體育局", title: "副局長", count: 2 },
+        { name: "鄭裕峯", table: "12", company: "台北市大安區", title: "區長", count: 2 },
+        { name: "李雯茹", table: "12", company: "文山區垃圾回饋管委會", title: "主任", count: 1 },
+        { name: "李美麗", table: "12", company: "", title: "區長", count: 1 },
+        { name: "李勝楷", table: "12", company: "", title: "秘書", count: 1 },
+        { name: "張詩函", table: "12", company: "", title: "課員", count: 1 },
+        { name: "白淑玲", table: "12", company: "", title: "委員", count: 1 },
+        { name: "黃泰聰", table: "13", company: "捷運局", title: "處長", count: 1 },
+        { name: "呂文儒", table: "13", company: "捷運局", title: "處長", count: 5 },
+        { name: "張崇燿", table: "13", company: "", title: "廠長", count: 2 },
+        { name: "王央城", table: "13", company: "", title: "董事長", count: 1 },
+        { name: "王述安", table: "13", company: "", title: "副董", count: 1 },
+        { name: "林世湖", table: "14", company: "華林營造", title: "董事長", count: 2 },
+        { name: "盧育充", table: "14", company: "開揚營造", title: "董事長", count: 2 },
+        { name: "楊家瑋", table: "14", company: "", title: "董事長", count: 2 },
+        { name: "楊家誠", table: "14", company: "", title: "", count: 2 },
+        { name: "馬述康", table: "14", company: "榮金公司", title: "", count: 1 },
+        { name: "翁維鈴", table: "14", company: "榮金公司", title: "", count: 1 },
+        { name: "林培元", table: "15", company: "華熊營造", title: "", count: 1 },
+        { name: "鍾俊宏", table: "15", company: "永峻結構", title: "", count: 1 },
+        { name: "林永財 ", table: "15", company: "耕薪建設", title: "", count: 1 },
+        { name: "陳秋雄", table: "15", company: "忠泰建設", title: "", count: 1 },
+        { name: "楊添理", table: "15", company: "法柏工程", title: "", count: 1 },
+        { name: "施振榮", table: "15", company: "友勝機電", title: "", count: 1 },
+        { name: "葉秀信", table: "15", company: "佳泰昌", title: "", count: 1 },
+        { name: "周琪偉", table: "15", company: "樸實美學", title: "", count: 1 },
+        { name: " 陳俊嘉", table: "15", company: "樸實美學", title: "", count: 1 },
+        { name: "洪輝堅", table: "15", company: "德謙建設", title: "", count: 1 },
+        { name: "楊文龍", table: "16", company: "榮實", title: "副總", count: 1 },
+        { name: "崔梅蘭", table: "16", company: "宏匯", title: "總經理攜伴的人", count: 2 },
+        { name: "葉文凱", table: "16", company: "華清", title: "教授", count: 1 },
+        { name: "郭明棠", table: "16", company: "旺邦營造", title: "總經理", count: 1 },
+        { name: "李惟嚴 ", table: "16", company: "兆豐-宜蘭", title: "經理", count: 1 },
+        { name: "張震宇", table: "16", company: "兆豐-宜蘭", title: "經理", count: 1 },
+        { name: "林楊傑", table: "16", company: "兆豐-宜蘭", title: "科長", count: 1 },
+        { name: "劉昇昌", table: "16", company: "會計師", title: "會計師", count: 1 },
+        { name: "吳榮智", table: "16", company: "大豐（日商）", title: "協理", count: 1 },
+        { name: "合庫同仁", table: "17", company: "合庫", title: "", count: 10 },
+        { name: "任玫娟", table: "18", company: "銀光好居行動聯盟", title: "同仁", count: 1 },
+        { name: "吳鴻宜", table: "18", company: "銀光好居行動聯盟", title: "同仁", count: 1 },
+        { name: "李沛勳", table: "18", company: "家人", title: "家人", count: 1 },
+        { name: "吳季軒", table: "18", company: "家人", title: "家人", count: 1 },
+        { name: "李佳穎", table: "18", company: "家人", title: "家人", count: 1 },
+        { name: "鄧有志", table: "18", company: "家人(加小孩伊凌)", title: "家人(加小孩伊凌)", count: 1 },
+        { name: "李政達", table: "18", company: "家人", title: "家人", count: 1 },
+        { name: "黃群宸", table: "18", company: "銀光協會", title: "顧問", count: 1 },
+        { name: "顧敏光", table: "18", company: "山友聯盟", title: "", count: 1 },
+        { name: "謝文琪", table: "18", company: "山友聯盟", title: "", count: 1 },
+        { name: "陳欽賜", table: "19", company: "", title: "委員", count: 2 },
+        { name: "王淑孟", table: "19", company: "", title: "委員", count: 1 },
+        { name: "劉文隆", table: "19", company: "", title: "委員", count: 1 },
+        { name: "鄢健民", table: "19", company: "", title: "委員", count: 2 },
+        { name: "王寶蒞", table: "19", company: "", title: "委員", count: 2 },
+        { name: "黃蕙芬", table: "19", company: "", title: "委員", count: 1 },
+        { name: "陶秋菊", table: "19", company: "", title: "委員", count: 1 },
+        { name: "劉瑞", table: "19", company: "", title: "委員", count: 1 },
+        { name: "林騰輝", table: "20", company: "晉瑜", title: "總經理", count: 1 },
+        { name: "李", table: "20", company: "漢嵩", title: "董事長", count: 1 },
+        { name: "范良恩", table: "20", company: "裕成", title: "總經理", count: 1 },
+        { name: "李興和", table: "20", company: "宜興預拌", title: "董事長", count: 1 },
+        { name: "高樹賢", table: "20", company: "宜興預拌", title: "總經理", count: 1 },
+        { name: "陳麒元", table: "20", company: "阿平", title: "", count: 2 },
+        { name: "潘興中", table: "20", company: "阿平", title: "理事長", count: 1 },
+        { name: "李世鵬", table: "20", company: "阿平", title: "", count: 2 },
+        { name: "甲藤", table: "21", company: "台灣大林組", title: "副總經理", count: 1 },
+        { name: "蔡育儒", table: "21", company: "台灣大林組", title: "協理", count: 1 },
+        { name: "中村", table: "21", company: "台灣大林組", title: "經理", count: 1 },
+        { name: "蘇柏年", table: "21", company: "台灣大林組", title: "副理", count: 1 },
+        { name: "蔡鴻臚", table: "21", company: "台灣大林組", title: "協理", count: 1 },
+        { name: "許朝凱", table: "21", company: "楠梓廠", title: "協理", count: 1 },
+        { name: "張峰榮", table: "21", company: "安信建經", title: "總經理", count: 2 },
+        { name: "尤副總夫婦", table: "21", company: "金務大", title: "副總經理", count: 2 },
+        { name: "陳信瑩", table: "22", company: "", title: "律師", count: 3 },
+        { name: "郭文愷", table: "22", company: "雙子星工地：JV", title: "副總", count: 1 },
+        { name: "鍾之瑋", table: "22", company: "雙子星工地：JV", title: "採購部長", count: 1 },
+        { name: "張旗元", table: "22", company: "雙子星工地：JV", title: "D所 所長", count: 1 },
+        { name: "陳玠文", table: "22", company: "雙子星工地：JV", title: "C所 所長", count: 1 },
+        { name: "盧吉勇", table: "22", company: "雙子星工地：JV", title: "P所 所長", count: 1 },
+        { name: "洪禎陽", table: "22", company: "雙子星工地：JV", title: "P所 副所長", count: 1 },
+        { name: "彭智楷", table: "22", company: "雙子星工地：JV", title: "技術部長", count: 1 },
+        { name: "許昇源", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "高興秋", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "陳文德", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "杜仲浩", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "曾汶涺", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "張寧東", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "張炳煌", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "張繼雷", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "甘濟寧", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "陳文凱", table: "23", company: "華熊", title: "所長", count: 1 },
+        { name: "魏建武", table: "23", company: "四方", title: "協理", count: 1 },
+        { name: "雙子星同仁", table: "24", company: "雙子星JV減2人", title: "", count: 10 },
+        { name: "江培坤", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "黃翠郁", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "趙佳宜", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "胡立", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "莊搏全", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "朱玉玲", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "劉中天", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "鄭錫欽", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "陳松璧", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "林碧雲", table: "25", company: "山友聯盟", title: "", count: 1 },
+        { name: "蔣醒賢", table: "29", company: "安眾建設", title: "", count: 1 },
+        { name: "吳明錫", table: "29", company: "安眾建設", title: "", count: 1 },
+        { name: "李孟潔", table: "29", company: "安眾建設", title: "", count: 1 },
+        { name: "林瑜宣", table: "29", company: "安眾建設", title: "", count: 1 },
+        { name: "王柏元", table: "29", company: "安眾建設", title: "", count: 1 },
+        { name: "謝仕煌", table: "29", company: "", title: "建築師", count: 1 },
+        { name: "鍾宜蓁", table: "29", company: "", title: "建築師", count: 1 },
+        { name: "陳冠宇", table: "29", company: "榮金公司", title: "", count: 1 },
+        { name: "康澍之", table: "29", company: "榮金公司", title: "", count: 1 },
+        { name: "秦浩瑋", table: "29", company: "榮金公司", title: "", count: 1 },
+        { name: "李家瑋", table: "29", company: "榮金公司", title: "", count: 1 },
+        { name: "詹美雲", table: "30", company: "", title: "", count: 1 },
+        { name: "希妮", table: "30", company: "", title: "", count: 1 },
+        { name: "王淑嬿", table: "30", company: "", title: "", count: 1 },
+        { name: "蔡美玉", table: "30", company: "", title: "", count: 1 },
+        { name: "劉楹驊", table: "30", company: "", title: "", count: 1 },
+        { name: "黃碧珍", table: "30", company: "", title: "", count: 1 },
+        { name: "陳世心", table: "30", company: "", title: "", count: 1 },
+        { name: "邱月慇 ", table: "30", company: "", title: "", count: 1 },
+        { name: "翁雪鳳", table: "30", company: "", title: "", count: 1 },
+        { name: "楊麗娜", table: "30", company: "", title: "", count: 1 },
+        { name: "李錦珠", table: "31", company: "7277-YE", title: "主委", count: 1 },
+        { name: "蔡秀玲", table: "31", company: "中正區黨部", title: "主委", count: 1 },
+        { name: "蘇龍華", table: "31", company: "", title: "主委", count: 2 },
+        { name: "許瑩珠", table: "31", company: "婦宣隊", title: "", count: 1 },
+        { name: "陳涂美瑾", table: "31", company: "", title: "", count: 1 },
+        { name: "陳明月", table: "31", company: "", title: "", count: 1 },
+        { name: "江美芬", table: "31", company: "", title: "", count: 1 },
+        { name: "湯明珠", table: "31", company: "", title: "台長", count: 2 },
+        { name: "林逢益", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "許玉", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "陳溫柔", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "許梅幸", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "程大哥", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "月秀", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "羅嘉善", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "趙如宜", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "趙孜宏", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "林慧慈", table: "32", company: "山友聯盟", title: "", count: 1 },
+        { name: "涂光君", table: "36", company: "集遠營造", title: "副總", count: 1 },
+        { name: "羅少廷", table: "36", company: "集遠營造", title: "主任", count: 1 },
+        { name: "張益綸", table: "36", company: "上億營造", title: "老闆", count: 1 },
+        { name: "張雲翔", table: "36", company: "上億營造", title: "眷屬", count: 1 },
+        { name: "江嘉翔", table: "36", company: "上億營造", title: "經理", count: 1 },
+        { name: "陳家承", table: "36", company: "上億營造", title: "司機", count: 1 },
+        { name: "吳柏賢", table: "36", company: "政鼎工程", title: "老闆", count: 1 },
+        { name: "李政田", table: "36", company: "政鼎營造", title: "協理", count: 1 },
+        { name: "王進裕", table: "36", company: "政鼎營造", title: "主任", count: 1 },
+        { name: "勤家同仁", table: "37", company: "勤家建設", title: "協理/副理", count: 3 },
+        { name: "鴻頌評", table: "37", company: "洪頌評建築師", title: "建築師/夫人", count: 2 },
+        { name: "陳文彥", table: "37", company: "陳文彥建築師", title: "建築師", count: 1 },
+        { name: "璞真同仁", table: "37", company: "璞真營造", title: "游主任等3人", count: 3 },
+        { name: "郭錫隆", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "唐毓琪", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "女婿", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "林錫增", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "楊鳳卿", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "沈榮華", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "林逢旗", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "陳麗華", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "張嘉祥", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "夫人", table: "38", company: "山友聯盟", title: "", count: 1 },
+        { name: "劉永泉", table: "39", company: "", title: "委員", count: 1 },
+        { name: "陳秋菊", table: "39", company: "", title: "委員", count: 1 },
+        { name: "許坤生", table: "39", company: "", title: "", count: 1 },
+        { name: "林琪婷", table: "39", company: "", title: "代贈工", count: 2 },
+        { name: "黃耀宗", table: "39", company: "", title: "志工", count: 2 },
+        { name: "趙玉華", table: "39", company: "", title: "志工", count: 1 },
+        { name: "林水蘭 ", table: "39", company: "", title: "志工", count: 1 },
+        { name: "柯彩雲 ", table: "39", company: "", title: "志工", count: 1 },
+        { name: "李其蘭 ", table: "39", company: "", title: "志工", count: 1 },
+        { name: "林俊傑", table: "40", company: "", title: "", count: 2 },
+        { name: "張肇峯", table: "40", company: "", title: "", count: 3 },
+        { name: "文昌同仁", table: "40", company: "文昌營造", title: "經理/夫人", count: 3 },
+        { name: "吳典剛", table: "40", company: "合嘉建設", title: "主任", count: 1 },
+        { name: "林明勵", table: "40", company: "合嘉建設", title: "主任", count: 1 },
+        { name: "朱之豪", table: "41", company: "遠揚營造", title: "所長", count: 1 },
+        { name: "吳媺媙", table: "41", company: "遠揚營造", title: "組長", count: 1 },
+        { name: "陳啟義", table: "41", company: "遠揚營造", title: "主任", count: 1 },
+        { name: "高逢仁", table: "41", company: "遠揚營造", title: "主任", count: 1 },
+        { name: "張維瑛", table: "41", company: "榮工工程", title: "組長", count: 1 },
+        { name: "詹永絜", table: "41", company: "榮工工程", title: "品管", count: 1 },
+        { name: "張育慈", table: "41", company: "榮工工程", title: "品管", count: 1 },
+        { name: "張雅婷", table: "41", company: "榮工工程", title: "工務", count: 1 },
+        { name: "張珉碩", table: "41", company: "百豐營造", title: "經理", count: 1 },
+        { name: "陳峯明", table: "41", company: "百豐營造", title: "主任", count: 1 },
+        { name: "萬堡同仁", table: "42", company: "萬堡營造", title: "副理/主任", count: 3 },
+        { name: "王萬枝", table: "42", company: "春原營造-西松國小", title: "經理", count: 1 },
+        { name: "陳泓諺", table: "42", company: "春原營造-西松國小", title: "主任", count: 1 },
+        { name: "展群同仁", table: "42", company: "展群營造", title: "楊副總等5人", count: 5 },
+        { name: "郭森泰", table: "43", company: "新北義交", title: "隊長", count: 1 },
+        { name: "楊凱翔", table: "43", company: "西卡藥劑商", title: "員工", count: 1 },
+        { name: "鍾益庭", table: "43", company: "西卡藥劑商", title: "員工", count: 1 },
+        { name: "江俊毅", table: "43", company: "達勝興", title: "班長", count: 1 },
+        { name: "鄭清輝", table: "43", company: "達勝興", title: "副班長", count: 1 },
+        { name: "王靖壹", table: "43", company: "承恩企業(砂石商)", title: "董事長", count: 1 },
+        { name: "魏向賢", table: "43", company: "承恩企業(砂石商)", title: "董事長", count: 1 },
+        { name: "魏伯諭", table: "43", company: "承恩企業(砂石商)", title: "經理", count: 1 },
+        { name: "陳鴻麒", table: "43", company: "承恩企業(砂石商)", title: "員工", count: 1 },
+        { name: "陳儒玄", table: "43", company: "承恩企業(砂石商)", title: "員工", count: 1 },
+        { name: "救國團同仁", table: "44", company: "救國團", title: "", count: 10 },
+        { name: "泛亞同仁", table: "45", company: "泛亞工程", title: "", count: 10 },
+        { name: "豐順鴻龍同仁", table: "46", company: "豐順/鴻龍", title: "黃主任等10人", count: 10 },
+        { name: "孫靖雯", table: "49", company: "", title: "", count: 1 },
+        { name: "高嘉穗", table: "49", company: "", title: "", count: 1 },
+        { name: "郭素娟", table: "49", company: "", title: "", count: 1 },
+        { name: "林惠敏", table: "49", company: "", title: "", count: 1 },
+        { name: "黃以寬", table: "49", company: "", title: "", count: 1 },
+        { name: "王怡鈞", table: "49", company: "", title: "", count: 1 },
+        { name: "陳育婷", table: "49", company: "", title: "", count: 1 },
+        { name: "劉素杏", table: "49", company: "", title: "", count: 1 },
+        { name: "陳雲蘭", table: "49", company: "", title: "", count: 1 },
+        { name: "顧曉鈴", table: "49", company: "", title: "", count: 1 },
+        { name: "陳穎毅", table: "50", company: "兄弟", title: "Peter", count: 1 },
+        { name: "徐冠榮", table: "50", company: "", title: "學長", count: 1 },
+        { name: "姜俊安", table: "50", company: "", title: "小安", count: 1 },
+        { name: "黃冠程", table: "50", company: "", title: "黃桑", count: 1 },
+        { name: "侯達龢", table: "50", company: "", title: "侯哥", count: 1 },
+        { name: "林政華", table: "50", company: "", title: "Seika", count: 1 },
+        { name: "Allen", table: "50", company: "", title: "", count: 1 },
+        { name: "Johnson", table: "50", company: "", title: "", count: 1 },
+        { name: "阿桃", table: "50", company: "", title: "", count: 1 },
+        { name: "陳老師", table: "51", company: "", title: "", count: 10 },
+        { name: "阿勇家人", table: "53", company: "", title: "家人", count: 10 },
+        { name: "郭進興", table: "54", company: "", title: "副總", count: 1 },
+        { name: "黃麗華", table: "54", company: "", title: "", count: 1 },
+        { name: "楊文彬", table: "54", company: "銀光協會", title: "專案幹事 ", count: 1 },
+        { name: "楊增福", table: "54", company: "新生辦公室", title: "同仁", count: 1 },
+        { name: "阿惠", table: "62", company: "", title: "家人", count: 4 },
+        { name: "月英", table: "62", company: "", title: "家人", count: 2 },
+        { name: "阿伯", table: "62", company: "", title: "家人", count: 2 },
+        { name: "高義秀", table: "26,27,28,33,34,35", company: "黨部", title: "榮譽主委", count: 2 },
+        { name: "高錦煌", table: "26,27,28,33,34,35", company: "", title: "會長", count: 1 },
+        { name: "高志信", table: "26,27,28,33,34,35", company: "民眾服務社", title: "榮譽理事長", count: 1 },
+        { name: "翁傳煌", table: "26,27,28,33,34,35", company: "民眾服務社", title: "榮譽理事長", count: 1 },
+        { name: "黃豪慶", table: "26,27,28,33,34,35", company: "民眾服務社", title: "理事長", count: 2 },
+        { name: "黃美華", table: "26,27,28,33,34,35", company: "黨部", title: "榮譽主委", count: 1 },
+        { name: "周情意", table: "26,27,28,33,34,35", company: "婦女會", title: "理事長", count: 1 },
+        { name: "董育晴", table: "26,27,28,33,34,35", company: "婦女會", title: "榮譽理事長", count: 1 },
+        { name: "高逸松", table: "26,27,28,33,34,35", company: "", title: "", count: 1 },
+        { name: "蔡素梅", table: "26,27,28,33,34,35", company: "婦女會", title: "榮譽理事長", count: 1 },
+        { name: "桂芳", table: "26,27,28,33,34,35", company: "婦工會", title: "婦工會會長", count: 1 },
+        { name: "宋明凱", table: "26,27,28,33,34,35", company: "黨部", title: "執行長", count: 1 },
+        { name: "王寶珠", table: "26,27,28,33,34,35", company: "黨部", title: "副執行長", count: 1 },
+        { name: "王玉梅", table: "26,27,28,33,34,35", company: "黨部", title: "", count: 1 },
+        { name: "王敬賢", table: "26,27,28,33,34,35", company: "", title: "", count: 1 },
+        { name: "陳麗嬌", table: "26,27,28,33,34,35", company: "", title: "", count: 1 },
+        { name: "楊德鑫", table: "26,27,28,33,34,35", company: "文二保防組", title: "警務佐", count: 1 },
+        { name: "劉宗勳", table: "26,27,28,33,34,35", company: "興家里", title: "里長", count: 1 },
+        { name: "張朝雄", table: "26,27,28,33,34,35", company: "興邦里", title: "里長", count: 2 },
+        { name: "林文權", table: "26,27,28,33,34,35", company: "興安里", title: "里長", count: 2 },
+        { name: "黃培堯", table: "26,27,28,33,34,35", company: "景華里", title: "里長", count: 1 },
+        { name: "高林玉嬌", table: "26,27,28,33,34,35", company: "樟腳里", title: "里長", count: 1 },
+        { name: "張佳南", table: "26,27,28,33,34,35", company: "指南里", title: "里長", count: 1 },
+        { name: "陳再炯", table: "26,27,28,33,34,35", company: "樟樹里", title: "里長", count: 1 },
+        { name: "張紅木", table: "26,27,28,33,34,35", company: "萬祥里", title: "里長", count: 1 },
+        { name: "黃麗霓", table: "26,27,28,33,34,35", company: "萬有里", title: "里長", count: 2 },
+        { name: "邱秋芳", table: "26,27,28,33,34,35", company: "萬年里", title: "里長", count: 1 },
+        { name: "陳姿秀", table: "26,27,28,33,34,35", company: "萬芳里", title: "里長", count: 1 },
+        { name: "蔡岳澄", table: "26,27,28,33,34,35", company: "景慶里", title: "里長", count: 1 },
+        { name: "何進輝", table: "26,27,28,33,34,35", company: "景仁里", title: "里長", count: 1 },
+        { name: "歐陽禾英", table: "26,27,28,33,34,35", company: "樟新里", title: "里長", count: 1 },
+        { name: "施志聰", table: "26,27,28,33,34,35", company: "興泰里", title: "里長", count: 1 },
+        { name: "周良富", table: "26,27,28,33,34,35", company: "老泉里", title: "里長", count: 1 },
+        { name: "林志勤", table: "26,27,28,33,34,35", company: "木柵里", title: "里長", count: 2 },
+        { name: "曾瑞城", table: "26,27,28,33,34,35", company: "興得里", title: "里長", count: 2 },
+        { name: "陳千惠", table: "26,27,28,33,34,35", company: "景行里", title: "里長", count: 2 },
+        { name: "呂晴芸", table: "26,27,28,33,34,35", company: "興福里", title: "里長", count: 1 },
+        { name: "鄭文綺", table: "26,27,28,33,34,35", company: "政大里", title: "里長", count: 2 },
+        { name: "仇世屏", table: "26,27,28,33,34,35", company: "明義里", title: "里長", count: 1 },
+        { name: "洪正平", table: "26,27,28,33,34,35", company: "興光里", title: "里長", count: 2 },
+        { name: "林宗弘", table: "26,27,28,33,34,35", company: "萬隆里", title: "里長", count: 1 },
+        { name: "廖欽銅", table: "26,27,28,33,34,35", company: "試院里", title: "里長", count: 1 },
+        { name: "徐福進", table: "26,27,28,33,34,35", company: "萬盛里", title: "里長", count: 1 },
+        { name: "吳祚榮", table: "26,27,28,33,34,35", company: "萬和里", title: "里長", count: 1 },
+        { name: "高鳳謙", table: "26,27,28,33,34,35", company: "景東里", title: "里長", count: 1 },
+        { name: "林賢錡", table: "26,27,28,33,34,35", company: "景美里", title: "里長", count: 1 },
+        { name: "鄭明通", table: "26,27,28,33,34,35", company: "木新里", title: "里長", count: 1 },
+        { name: "林志冠", table: "26,27,28,33,34,35", company: "萬興里", title: "里長", count: 2 },
+        { name: "吳坤輝", table: "26,27,28,33,34,35", company: "博嘉里", title: "里長", count: 1 },
+        { name: "陳峙穎", table: "26,27,28,33,34,35", company: "華興里", title: "里長", count: 1 },
+        { name: "榮工850同仁", table: "47,48", company: "榮工850", title: "", count: 20 },
+        { name: "員工", table: "52,55,56,57,58,59,60,61,62", company: "員工", title: "", count: 88 }
+    ];
+
+    function searchTable() {
+        const keyword = document.getElementById('nameInput').value.trim();
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = ""; 
+
+        if (!keyword) {
+            resultDiv.innerHTML = "<div class='error-msg'>請輸入姓名再查詢喔！</div>";
+            return;
+        }
+
+        const matches = guestData.filter(g => g.name.includes(keyword));
+
+        if (matches.length > 0) {
+            matches.forEach(person => {
+                const card = `
+                    <div class="guest-card">
+                        <span class="table-num">${person.table}</span>
+                        <div class="info-row">
+                            <span class="label">姓名 / 職稱</span>
+                            <span class="value">${person.name} <small style="font-weight:normal; color:#666;">(${person.title})</small></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">所屬單位</span>
+                            <span class="value">${person.company}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">出席人數</span>
+                            <span class="value">${person.count} 位</span>
+                        </div>
+                    </div>
+                `;
+                resultDiv.innerHTML += card;
+            });
+        } else {
+            resultDiv.innerHTML = "<div class='error-msg'>抱歉，查無資料。<br>請檢查是否輸入正確姓名。</div>";
+        }
+    }
+</script>
+
+</body>
+</html>
